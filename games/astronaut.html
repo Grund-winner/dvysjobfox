@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Astronaut - GOD OF CASINO</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="game.css">
+    <style>:root { --pred-color: #5b7fff; }</style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <a href="../index.php" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+            <span class="game-title">Astronaut</span>
+        </div>
+        <div class="top-bar-right">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connexion...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Iframe -->
+    <div class="iframe-container" id="iframeContainer">
+        <div class="loading-game" id="loadingScreen">
+            <div class="spinner"></div>
+            <div class="loading-text">Chargement du jeu...</div>
+        </div>
+        <!-- Prediction Overlay -->
+        <div class="prediction-overlay">
+            <div class="pred-main">
+                <div class="pred-badge">PREDICTION AI</div>
+                <div class="pred-coeff loading" id="predCoeff">Analyse en cours</div>
+                <div class="pred-confidence" id="predConf"></div>
+                <div class="pred-round" id="predRound"></div>
+            </div>
+        </div>
+        <!-- Game State Bar -->
+        <div class="game-state-bar">
+            <div class="state-label" id="stateLabel">
+                <div class="state-dot"></div>
+                <span id="stateText">Initialisation</span>
+            </div>
+            <div class="state-info">
+                <div class="last-rounds" id="lastRounds"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../prediction.js"></script>
+    <script>
+        // Configuration Astronaut
+        const GAME_CONFIG = {
+            game: 'astronaut',
+            name: 'Astronaut',
+            provider: '100hp',
+            stateApi: null,
+            maxCoeff: 60,
+            avgCoeff: 3.8,
+            pollInterval: 800,
+        };
+
+        // Elements
+        const predCoeff = document.getElementById('predCoeff');
+        const predConf = document.getElementById('predConf');
+        const predRound = document.getElementById('predRound');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const stateLabel = document.getElementById('stateLabel');
+        const stateTextEl = document.getElementById('stateText');
+        const lastRoundsEl = document.getElementById('lastRounds');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const iframeContainer = document.getElementById('iframeContainer');
+
+        // Charger l'iframe du jeu
+        async function loadGame() {
+            try {
+                // Essayer de recuperer un token frais
+                const tokenResp = await fetch('../get_token.php?game=astronaut');
+                const tokenData = await tokenResp.json();
+
+                let iframeSrc;
+                if (tokenData.iframe_src) {
+                    iframeSrc = tokenData.iframe_src;
+                } else {
+                    // Fallback: URL directe demo 1win
+                    iframeSrc = 'https://1win.ci/casino/play/v_100hp:astronaut';
+                }
+
+                // Creer l'iframe
+                const iframe = document.createElement('iframe');
+                iframe.src = iframeSrc;
+                iframe.allow = 'fullscreen; autoplay; clipboard-write';
+                iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+                iframe.style.cssText = 'width:100%;height:100%;border:none;';
+                iframeContainer.insertBefore(iframe, iframeContainer.firstChild);
+
+                iframe.onload = () => {
+                    loadingScreen.style.display = 'none';
+                    statusDot.classList.remove('offline');
+                    statusText.textContent = 'Actif';
+                };
+
+                iframe.onerror = () => {
+                    showError('Erreur de chargement', 'Le jeu n\'a pas pu se charger. Verifiez votre connexion.');
+                };
+
+                // Timeout de chargement
+                setTimeout(() => {
+                    if (loadingScreen.style.display !== 'none') {
+                        loadingScreen.style.display = 'none';
+                        statusText.textContent = 'Jeu charge';
+                    }
+                }, 8000);
+
+            } catch (e) {
+                // Fallback sans token frais
+                const iframe = document.createElement('iframe');
+                iframe.src = 'https://1win.ci/casino/play/v_100hp:astronaut';
+                iframe.allow = 'fullscreen; autoplay; clipboard-write';
+                iframe.style.cssText = 'width:100%;height:100%;border:none;';
+                iframeContainer.insertBefore(iframe, iframeContainer.firstChild);
+                
+                setTimeout(() => { loadingScreen.style.display = 'none'; }, 5000);
+            }
+        }
+
+        function showError(title, msg) {
+            loadingScreen.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="error-title">${title}</div>
+                <div class="error-msg">${msg}</div>
+                <button class="retry-btn" onclick="location.reload()">Reessayer</button>
+            `;
+            statusDot.classList.add('offline');
+            statusText.textContent = 'Hors ligne';
+        }
+
+        // Initialiser le predicteur
+        function initPredictor() {
+            GODPredictor.init(GAME_CONFIG, {
+                onPrediction: function(pred) {
+                    predCoeff.classList.remove('loading');
+                    predCoeff.innerHTML = 'x<span class="coeff-value">' + pred.ai_prediction + '</span>';
+                    predConf.innerHTML = 'Confiance: <strong>' + pred.manual_prediction.confidence + '%</strong>';
+                    predRound.textContent = 'Round #' + Math.floor(Math.random() * 90000 + 10000);
+                },
+                onStateChange: function(newState, oldState) {
+                    stateLabel.className = 'state-label state-' + newState;
+                    const labels = { waiting: 'En attente...', running: 'En vol !', ended: 'Termine' };
+                    stateTextEl.textContent = labels[newState] || newState;
+                    
+                    if (newState === 'running') {
+                        predCoeff.classList.remove('loading');
+                    }
+                },
+                onCoeffUpdate: function(coeff) {
+                    // Mise a jour du coefficient en temps reel
+                },
+                onError: function(err) {
+                    console.warn('Prediction error:', err);
+                }
+            });
+
+            statusText.textContent = 'Prediction active';
+        }
+
+        // Afficher les derniers rounds
+        function updateLastRounds(rounds) {
+            lastRoundsEl.innerHTML = '';
+            const display = rounds.slice(-5);
+            display.forEach(r => {
+                const el = document.createElement('span');
+                el.className = 'last-round' + (r > 5 ? ' high' : '');
+                el.textContent = 'x' + r;
+                lastRoundsEl.appendChild(el);
+            });
+        }
+
+        // Demarrage
+        loadGame();
+        initPredictor();
+    </script>
+</body>
+</html>
